@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Suspense } from "react";
 
 import { DeploymentDiagnosticsPanel } from "@/components/DeploymentDiagnosticsPanel";
 

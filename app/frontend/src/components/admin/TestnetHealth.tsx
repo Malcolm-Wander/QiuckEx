@@ -32,13 +32,11 @@ export function TestnetHealth() {
   const [lag, setLag] = useState<IndexerLag | null>(null);
   const [smoke, setSmoke] = useState<SmokeTest[]>([]);
   const [filter, setFilter] = useState<"all" | "blockers" | "warnings" | "info">("all");
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      setLoading(true);
       setError(null);
 
       try {
@@ -59,9 +57,11 @@ export function TestnetHealth() {
         }
 
         // Indexer lag
+        let lagSeconds: number | null = null;
         if (lagResp && lagResp.ok) {
           const data = await lagResp.json();
-          if (!cancelled) setLag({ lagSeconds: data.lagSeconds ?? null, lastProcessed: data.lastProcessed ?? null });
+          lagSeconds = data.lagSeconds ?? null;
+          if (!cancelled) setLag({ lagSeconds, lastProcessed: data.lastProcessed ?? null });
         } else {
           if (!cancelled) setLag({ lagSeconds: null, lastProcessed: null });
         }
@@ -76,13 +76,11 @@ export function TestnetHealth() {
             setSmoke([
               { id: "tx", name: "Transaction submit", status: "ok" },
               { id: "webhooks", name: "Webhook delivery", status: "ok" },
-              { id: "indexer", name: "Indexer access", status: lag?.lagSeconds && lag.lagSeconds > 60 ? "warn" : "ok" },
+              { id: "indexer", name: "Indexer access", status: lagSeconds !== null && lagSeconds > 60 ? "warn" : "ok" },
             ] as SmokeTest[]);
         }
-      } catch (e) {
+      } catch {
         if (!cancelled) setError("Unable to load health data");
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     };
 
@@ -91,16 +89,6 @@ export function TestnetHealth() {
       cancelled = true;
     };
   }, [apiBase, deployment.contractRegistryVersion]);
-
-  const severityFor = (s: SmokeTest | { key: string; value?: any } | null) => {
-    if (!s) return "info";
-    if ("status" in s) {
-      if (s.status === "fail") return "blocker";
-      if (s.status === "warn") return "warning";
-      return "info";
-    }
-    return "info";
-  };
 
   const indexerSeverity = () => {
     if (!lag || lag.lagSeconds == null) return "warning";
@@ -192,7 +180,7 @@ export function TestnetHealth() {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 text-sm text-subtle">
           <span className="font-semibold">Filter:</span>
-          <select value={filter} onChange={(e) => setFilter(e.target.value as any)} className="border border-border rounded-md py-1 px-2 bg-card text-sm">
+          <select value={filter} onChange={(e) => setFilter(e.target.value as "all" | "blockers" | "warnings" | "info")} className="border border-border rounded-md py-1 px-2 bg-card text-sm">
             <option value="all">All</option>
             <option value="blockers">Blockers</option>
             <option value="warnings">Warnings</option>
